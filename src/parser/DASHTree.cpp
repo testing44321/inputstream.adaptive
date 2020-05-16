@@ -1356,15 +1356,20 @@ end(void *data, const char *el)
     {
       if (strcmp(el, "BaseURL") == 0)
       {
+      std::string bu;
         while (dash->strXMLText_.size() && (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
           dash->strXMLText_.erase(dash->strXMLText_.begin());
         if (dash->strXMLText_.compare(0, 7, "http://") == 0
           || dash->strXMLText_.compare(0, 8, "https://") == 0)
-          dash->base_url_ = dash->strXMLText_;
+          bu = dash->strXMLText_;
         else if (!dash->strXMLText_.empty() && dash->strXMLText_[0] == '/')
-          dash->base_url_ = dash->base_domain_ + dash->strXMLText_;
+          bu = dash->base_domain_ + dash->strXMLText_;
         else
-          dash->base_url_ += dash->strXMLText_;
+          bu += dash->strXMLText_;
+        if (dash->base_url_.empty())
+          dash->base_url_ = bu;
+        else
+          dash->fallback_baseurls_.push_back(bu);
         dash->currentNode_ &= ~MPDNODE_BASEURL;
       }
     }

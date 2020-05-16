@@ -85,8 +85,15 @@ void AdaptiveStream::worker()
     if (type_ == AdaptiveTree::SUBTITLE)
         retryCount = 1;
 
-    while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
+    while (!ret && !stopped_ && retryCount-- && (tree_.has_timeshift_buffer_ || !tree_.fallback_baseurls_.empty()))
     {
+      if (!tree_.fallback_baseurls_.empty())
+      {
+        tree_.fallback_baseurls_.push_back(tree_.base_url_);
+        tree_.base_url_ = tree_.fallback_baseurls_.front();
+        tree_.fallback_baseurls_.erase(tree_.fallback_baseurls_.begin());
+        tree_.current_representation_->url_ = buildDownloadUrl(download_url_);
+      }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
       ret = download_segment();
