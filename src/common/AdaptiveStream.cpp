@@ -174,7 +174,7 @@ bool AdaptiveStream::prepare_stream(AdaptiveTree::AdaptationSet* adp,
 
 bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer)
 {
-  if (!play_timeshift_buffer && !~seg_offset && tree_.has_timeshift_buffer_ && current_rep_->segments_.data.size()>1)
+  if (!play_timeshift_buffer && !~seg_offset && tree_.has_timeshift_buffer_ && current_rep_->segments_.data.size() > 1 && tree_.periods_.size() == 1)
   {
     std::int32_t pos;
     if (tree_.has_timeshift_buffer_ || tree_.available_time_>= tree_.stream_start_)
@@ -385,7 +385,7 @@ bool AdaptiveStream::ensureSegment()
       ResetSegment();
       thread_data_->signal_dl_.notify_one();
     }
-    else if (tree_.HasUpdateThread())
+    else if (tree_.HasUpdateThread() && current_period_ == tree_.periods_.back())
     {
       current_rep_->flags_ |= AdaptiveTree::Representation::WAITFORSEGMENT;
       Log(LOGLEVEL_DEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
@@ -530,7 +530,12 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needR
     ++choosen_seg;
 
   if (choosen_seg == current_rep_->segments_.data.size())
-    return false;
+  {
+    if (sec_in_ts < current_rep_->segments_[0]->startPTS_ + current_rep_->duration_)
+      --choosen_seg;
+    else
+      return false;
+  }
 
   if (choosen_seg && current_rep_->get_segment(choosen_seg)->startPTS_ > sec_in_ts)
     --choosen_seg;
