@@ -779,7 +779,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         rep->current_segment_ = rep->get_segment(segmentId - rep->startNumber_);
       }
       if ((rep->flags_ & Representation::WAITFORSEGMENT) &&
-          rep->get_next_segment(rep->current_segment_))
+          (rep->get_next_segment(rep->current_segment_) || 
+           current_period_ != periods_.back()))
         rep->flags_ &= ~Representation::WAITFORSEGMENT;
     }
     else
