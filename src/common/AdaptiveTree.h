@@ -415,7 +415,6 @@ public:
   std::string etag_, last_modified_;
   std::string media_renewal_url_;
   uint32_t media_renewal_time_;
-  std::string manifest_parameter_;
 
   /* XML Parsing*/
   XML_Parser parser_;
