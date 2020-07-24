@@ -19,7 +19,6 @@
 #pragma once
 
 #include "../common/AdaptiveTree.h"
-#include <sstream>
 #include <map>
 
 class AESDecrypter;
