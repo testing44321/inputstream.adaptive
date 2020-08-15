@@ -46,13 +46,15 @@
 class AP4_GlobalOptions
 {
 public:
-    static bool GetBool(const char* name);
-    static void SetBool(const char* name, bool value);
+    static bool        GetBool(const char* name);
+    static void        SetBool(const char* name, bool value);
+    static const char* GetString(const char* name);
+    static void        SetString(const char* name, const char* value);
     
 private:
     struct Entry {
         AP4_String m_Name;
-        bool       m_BoolValue;
+        AP4_String m_Value;
     };
     static Entry* GetEntry(const char* name, bool autocreate);
     static AP4_List<Entry>* g_Entries;
@@ -261,6 +263,8 @@ public:
     void         SkipBits(unsigned int bit_count);
     AP4_UI32     BitsLeft();
 
+    unsigned int GetBitsRead();
+    
 private:
     // methods
     BitsWord ReadCache() const;

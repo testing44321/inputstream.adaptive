@@ -43,15 +43,13 @@
 |   AP4_FragmentSampleTable::AP4_FragmentSampleTable
 +---------------------------------------------------------------------*/
 AP4_FragmentSampleTable::AP4_FragmentSampleTable(AP4_ContainerAtom* traf, 
-  AP4_TrexAtom*      trex,
-  AP4_Cardinal       internal_track_id,
-  AP4_ByteStream*    sample_stream,
-  AP4_Position       moof_offset,
-  AP4_Position       mdat_payload_offset,
-  AP4_UI64           mdat_payload_size,
-  AP4_UI64           dts_origin)
-  : m_Duration(0)
-  , m_InternalTrackId(internal_track_id)
+                                                 AP4_TrexAtom*      trex,
+                                                 AP4_ByteStream*    sample_stream,
+                                                 AP4_Position       moof_offset,
+                                                 AP4_Position       mdat_payload_offset,
+                                                 AP4_UI64           mdat_payload_size,
+                                                 AP4_UI64           dts_origin) :
+    m_Duration(0)
 {
     AP4_TfhdAtom* tfhd = AP4_DYNAMIC_CAST(AP4_TfhdAtom, traf->GetChild(AP4_ATOM_TYPE_TFHD));
     if (tfhd == NULL) return;
@@ -178,7 +176,6 @@ AP4_FragmentSampleTable::AddTrun(AP4_TrunAtom*   trun,
 
     // parse all trun entries to setup the samples
     AP4_UI64 dts = dts_origin;
-    m_Duration = 0;
     for (unsigned int i=0; i<trun->GetEntries().ItemCount(); i++) {
         const AP4_TrunAtom::Entry& entry  = trun->GetEntries()[i];
         AP4_Sample&                sample = m_Samples[start+i];
@@ -270,7 +267,7 @@ AP4_FragmentSampleTable::GetSampleCount()
 AP4_SampleDescription*
 AP4_FragmentSampleTable::GetSampleDescription(AP4_Ordinal /*index*/)
 {
-    return NULL; // FIXME
+    return NULL; // TODO
 }
 
 /*----------------------------------------------------------------------
@@ -279,7 +276,7 @@ AP4_FragmentSampleTable::GetSampleDescription(AP4_Ordinal /*index*/)
 AP4_Cardinal
 AP4_FragmentSampleTable::GetSampleDescriptionCount()
 {
-    return 1; // FIXME
+    return 1; // TODO
 }
 
 /*----------------------------------------------------------------------
@@ -300,36 +297,19 @@ AP4_FragmentSampleTable::GetSampleChunkPosition(AP4_Ordinal  sample_index,
 |   AP4_FragmentSampleTable::GetSampleIndexForTimeStamp
 +---------------------------------------------------------------------*/
 AP4_Result 
-AP4_FragmentSampleTable::GetSampleIndexForTimeStamp(AP4_UI64     ts,
+AP4_FragmentSampleTable::GetSampleIndexForTimeStamp(AP4_UI64     /*ts*/, 
                                                     AP4_Ordinal& sample_index)
 {
-  if (!m_Samples.ItemCount())
-    return AP4_ERROR_NOT_ENOUGH_DATA;
-
-  sample_index = 0;
-  while (sample_index < m_Samples.ItemCount() && m_Samples[sample_index].GetCts() + m_Samples[sample_index].GetDuration() < ts)
-    ++sample_index;
-
-  if (sample_index == m_Samples.ItemCount())
-    return AP4_ERROR_NOT_ENOUGH_DATA;
-
-  return AP4_SUCCESS;
+    sample_index = 0; // TODO
+    return AP4_SUCCESS;
 }
 
 /*----------------------------------------------------------------------
 |   AP4_FragmentSampleTable::GetNearestSyncSampleIndex
 +---------------------------------------------------------------------*/
 AP4_Ordinal  
-AP4_FragmentSampleTable::GetNearestSyncSampleIndex(AP4_Ordinal sample_index, bool before)
+AP4_FragmentSampleTable::GetNearestSyncSampleIndex(AP4_Ordinal /*sample_index*/, bool /*before*/)
 {
-  if (sample_index >= m_Samples.ItemCount())
-    return sample_index;
-
-  AP4_Ordinal end(before ? 0 : m_Samples.ItemCount());
-
-  while (sample_index != end && !m_Samples[sample_index].IsSync())
-    sample_index = sample_index + (before ? -1 : 1);
-
-  return sample_index;
+    return 0; // TODO
 }
 

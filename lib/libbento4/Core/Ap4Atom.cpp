@@ -313,13 +313,16 @@ AP4_Atom::Clone()
     AP4_MemoryByteStream* mbs = new AP4_MemoryByteStream((AP4_Size)GetSize());
     
     // serialize to memory
-    if (AP4_FAILED(Write(*mbs))) goto end;
+    if (AP4_FAILED(Write(*mbs))) {
+        mbs->Release();
+        return NULL;
+    }
     
-    // create the clone for the serialized form
+    // create the clone from the serialized form
     mbs->Seek(0);
-    AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(*mbs, clone);
+    AP4_DefaultAtomFactory atom_factory;
+    atom_factory.CreateAtomFromStream(*mbs, clone);
     
-end:
     // release the memory stream
     mbs->Release();
 
@@ -465,11 +468,15 @@ AP4_NullTerminatedStringAtom::AP4_NullTerminatedStringAtom(AP4_Atom::Type  type,
                                                            AP4_ByteStream& stream) :
     AP4_Atom(type, size)
 {
-    AP4_Size str_size = (AP4_Size)size-AP4_ATOM_HEADER_SIZE;
-    char* str = new char[str_size];
-    stream.Read(str, str_size);
-    str[str_size-1] = '\0'; // force null-termination
-    m_Value = str;
+    AP4_Size str_size = (AP4_Size)size - AP4_ATOM_HEADER_SIZE;
+
+    if (str_size) {
+      char* str = new char[str_size];
+      stream.Read(str, str_size);
+      str[str_size - 1] = '\0'; // force null-termination
+      m_Value = str;
+      delete[] str;
+    }
 }
 
 /*----------------------------------------------------------------------
@@ -642,36 +649,58 @@ AP4_AtomParent::FindChild(const char* path,
     // walk the path
     while (path[0] && path[1] && path[2] && path[3]) {
         // we have 4 valid chars
-        const char* tail;
-        int         index = 0;
-        if (path[4] == '\0') {
-            tail = NULL;
-        } else if (path[4] == '/') {
-            // separator
-            tail = &path[5];
-        } else if (path[4] == '[') {
-            const char* x = &path[5];
-            while (*x >= '0' && *x <= '9') {
-                index = 10*index+(*x++ - '0');
-            }
-            if (x[0] == ']') {
-                if (x[1] == '\0') {
-                    tail = NULL;
-                } else {
-                    tail = x+2;
-                }
-            } else {
-                // malformed path
-                return NULL;
-            }
+        const char* end = &path[4];
+        
+        // look for the end or a separator
+        while (*end != '\0' && *end != '/' && *end != '[') {
+            ++end;
+        }
+        
+        // decide if this is a 4-character code or a UUID
+        AP4_UI08 uuid[16];
+        AP4_Atom::Type type = 0;
+        bool is_uuid = false;
+        if (end == path+4) {
+            // 4-character code
+            type = AP4_ATOM_TYPE(path[0], path[1], path[2], path[3]);
+        } else if (end == path+32) {
+            // UUID
+            is_uuid = true;
+            AP4_ParseHex(path, uuid, sizeof(uuid));
         } else {
             // malformed path
             return NULL;
         }
 
+        // parse the array index, if any
+        int index = 0;
+        if (*end == '[') {
+            const char* x = end+1;
+            while (*x >= '0' && *x <= '9') {
+                index = 10*index+(*x++ - '0');
+            }
+            if (*x != ']') {
+                // malformed path
+                return NULL;
+            }
+            end = x+1;
+        }
+        
+        // check what's at the end now
+        if (*end == '/') {
+            ++end;
+        } else if (*end != '\0') {
+            // malformed path
+            return NULL;
+        }
+        
         // look for this atom in the current list
-        AP4_Atom::Type type = AP4_ATOM_TYPE(path[0], path[1], path[2], path[3]); 
-        AP4_Atom* atom = parent->GetChild(type, index);
+        AP4_Atom* atom = NULL;
+        if (is_uuid) {
+            atom = parent->GetChild(uuid, index);
+        } else {
+            atom = parent->GetChild(type, index);
+        }
         if (atom == NULL) {
             // not found
             if (auto_create && (index == 0)) {
@@ -686,8 +715,8 @@ AP4_AtomParent::FindChild(const char* path,
             }
         }
 
-        if (tail) {
-            path = tail;
+        if (*end) {
+            path = end;
             // if this atom is an atom parent, recurse
             parent = AP4_DYNAMIC_CAST(AP4_ContainerAtom, atom);
             if (parent == NULL) return NULL;
@@ -698,6 +727,20 @@ AP4_AtomParent::FindChild(const char* path,
 
     // not found
     return NULL;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_AtomParent::CopyChildren
++---------------------------------------------------------------------*/
+AP4_Result
+AP4_AtomParent::CopyChildren(AP4_AtomParent& destination) const
+{
+    for (AP4_List<AP4_Atom>::Item* child = m_Children.FirstItem(); child; child=child->GetNext()) {
+        AP4_Atom* child_clone = child->GetData()->Clone();
+        destination.AddChild(child_clone);
+    }
+    
+    return AP4_SUCCESS;
 }
 
 /*----------------------------------------------------------------------
@@ -962,6 +1005,148 @@ AP4_JsonInspector::~AP4_JsonInspector()
 }
 
 /*----------------------------------------------------------------------
+|   Read one code point from a UTF-8 string
++---------------------------------------------------------------------*/
+static AP4_Result
+ReadUTF8(const AP4_UI08* utf, size_t* length, AP4_UI32* code_point) {
+    if (*length < 1) {
+       return AP4_ERROR_NOT_ENOUGH_DATA;
+    }
+
+    AP4_UI32 c = utf[0];
+    if ((c & 0x80) == 0) {
+        *length = 1;
+        *code_point = c;
+        return AP4_SUCCESS;
+    }
+    if (*length < 2) {
+        return AP4_ERROR_NOT_ENOUGH_DATA;
+    }
+    *code_point = 0;
+    if ((utf[1] & 0xc0) != 0x80) {
+        return AP4_ERROR_INVALID_FORMAT;
+    }
+    if ((c & 0xe0) == 0xe0) {
+        if (*length < 3) {
+            return AP4_ERROR_NOT_ENOUGH_DATA;
+        }
+        if ((utf[2] & 0xc0) != 0x80) {
+            return AP4_ERROR_INVALID_FORMAT;
+        }
+        if ((c & 0xf0) == 0xf0) {
+            if (*length < 4) {
+                return AP4_ERROR_NOT_ENOUGH_DATA;
+            }
+            if ((c & 0xf8) != 0xf0 || (utf[3] & 0xc0) != 0x80) {
+                return AP4_ERROR_INVALID_FORMAT;
+            }
+            *length = 4;
+            c = (utf[0] & 0x07) << 18;
+            c |= (utf[1] & 0x3f) << 12;
+            c |= (utf[2] & 0x3f) << 6;
+            c |= (utf[3] & 0x3f);
+        } else {
+            *length = 3;
+            c = (utf[0] & 0x0f) << 12;
+            c |= (utf[1] & 0x3f) << 6;
+            c |= (utf[2] & 0x3f);
+        }
+    } else {
+      /* 2-byte code */
+        *length = 2;
+        c = (utf[0] & 0x1f) << 6;
+        c |= (utf[1] & 0x3f);
+    }
+
+    *code_point = c;
+    return AP4_SUCCESS;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_JsonInspector::EscapeString
+|
+|   Not very efficient but simple function to escape characters in a
+|   JSON string
++---------------------------------------------------------------------*/
+AP4_String
+AP4_JsonInspector::EscapeString(const char* string)
+{
+    AP4_String result(string);
+
+    // Shortcut
+    if (result.GetLength() == 0) {
+        return result;
+    }
+  
+    // Compute the output size
+    size_t string_length = strlen(string);
+    const AP4_UI08* input = (const AP4_UI08*)string;
+    size_t input_length = string_length;
+    AP4_Size output_size = 0;
+    while (input_length) {
+      size_t chars_available = input_length;
+      AP4_UI32 code_point = 0;
+      AP4_Result r = ReadUTF8(input, &chars_available, &code_point);
+      if (AP4_FAILED(r)) {
+          // stop, but don't fail
+          break;
+      }
+      if (code_point == '"' || code_point == '\\') {
+          output_size += 2;
+      } else if (code_point <= 0x1F) {
+          output_size += 6;
+      } else {
+          output_size += chars_available;;
+      }
+      input_length -= chars_available;
+      input += chars_available;
+    }
+
+    // Shortcut
+    if (output_size == result.GetLength()) {
+        return result;
+    }
+
+    // Compute the escaped string in a temporary buffer
+    char* buffer = new char[output_size];
+    char* escaped = buffer;
+    input = (const AP4_UI08*)string;
+    input_length = string_length;
+    while (input_length) {
+        size_t chars_available = input_length;
+        AP4_UI32 code_point = 0;
+        AP4_Result r = ReadUTF8(input, &chars_available, &code_point);
+        if (AP4_FAILED(r)) {
+            // stop, but don't fail
+            break;
+        }
+        if (code_point == '"' || code_point == '\\') {
+            *escaped++ = '\\';
+            *escaped++ = (char)code_point;
+        } else if (code_point <= 0x1F) {
+            *escaped++ = '\\';
+            *escaped++ = 'u';
+            *escaped++ = '0';
+            *escaped++ = '0';
+            *escaped++ = AP4_NibbleHex(code_point >> 4);
+            *escaped++ = AP4_NibbleHex(code_point & 0x0F);
+        } else {
+            for (size_t i = 0; i < chars_available; i++) {
+                *escaped++ = (char)input[i];
+            }
+        }
+        input_length -= chars_available;
+        input += chars_available;
+    }
+
+    // Copy the buffer to a final string
+    result.Assign(buffer, output_size);
+    delete[] buffer;
+
+    return result;
+}
+
+/*----------------------------------------------------------------------
 |   AP4_JsonInspector::StartAtom
 +---------------------------------------------------------------------*/
 void
@@ -987,7 +1172,7 @@ AP4_JsonInspector::StartAtom(const char* name,
     m_Stream->WriteString("{\n");
     m_Stream->WriteString(prefix);
     m_Stream->WriteString("  \"name\":\"");
-    m_Stream->WriteString(name);
+    m_Stream->WriteString(EscapeString(name).GetChars());
     m_Stream->Write("\"", 1);
     m_Stream->WriteString(",\n");
     m_Stream->WriteString(prefix);
@@ -1055,9 +1240,9 @@ AP4_JsonInspector::AddField(const char* name, const char* value, FormatHint)
     m_Stream->WriteString(",\n");
     m_Stream->WriteString(prefix);
     m_Stream->Write("\"", 1);
-    m_Stream->WriteString(name);
+    m_Stream->WriteString(EscapeString(name).GetChars());
     m_Stream->Write("\":\"", 3);
-    m_Stream->WriteString(value);
+    m_Stream->WriteString(EscapeString(value).GetChars());
     m_Stream->Write("\"", 1);
 }
 
@@ -1098,7 +1283,7 @@ AP4_JsonInspector::AddFieldF(const char* name, float value, FormatHint /*hint*/)
                      "%f", 
                      value);
     m_Stream->Write("\"", 1);
-    m_Stream->WriteString(name);
+    m_Stream->WriteString(EscapeString(name).GetChars());
     m_Stream->Write("\":", 2);
     m_Stream->WriteString(str);
 }
@@ -1118,7 +1303,7 @@ AP4_JsonInspector::AddField(const char*          name,
     m_Stream->WriteString(prefix);
 
     m_Stream->Write("\"", 1);
-    m_Stream->WriteString(name);
+    m_Stream->WriteString(EscapeString(name).GetChars());
     m_Stream->Write("\":\"", 3);
     m_Stream->WriteString("[");
     unsigned int offset = 1;

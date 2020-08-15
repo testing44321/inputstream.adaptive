@@ -41,21 +41,21 @@
 |   AP4_LinearReader::AP4_LinearReader
 +---------------------------------------------------------------------*/
 AP4_LinearReader::AP4_LinearReader(AP4_Movie&      movie, 
-                                   AP4_ByteStream* fragment_stream,
-                                   AP4_Size        max_buffer) :
+                                   AP4_ByteStream* fragment_stream) :
     m_Movie(movie),
     m_Fragment(NULL),
     m_FragmentStream(fragment_stream),
+    m_CurrentFragmentPosition(0),
     m_NextFragmentPosition(0),
     m_BufferFullness(0),
     m_BufferFullnessPeak(0),
-    m_MaxBufferFullness(max_buffer),
     m_Mfra(NULL)
 {
     m_HasFragments = movie.HasFragments();
     if (fragment_stream) {
         fragment_stream->AddReference();
-        //fragment_stream->Tell(m_NextFragmentPosition);
+        fragment_stream->Tell(m_CurrentFragmentPosition);
+        m_NextFragmentPosition = m_CurrentFragmentPosition;
     }
 }
 
@@ -127,7 +127,7 @@ AP4_LinearReader::Reset()
   FlushQueues();
 
   // reset tracker states
-  for (unsigned int i = 0; i<m_Trackers.ItemCount(); i++) {
+  for (unsigned int i = 0; i < m_Trackers.ItemCount(); i++) {
     if (m_Trackers[i]->m_SampleTableIsOwned) {
       delete m_Trackers[i]->m_SampleTable;
     }
@@ -206,7 +206,8 @@ AP4_LinearReader::SeekTo(AP4_UI32 time_ms, AP4_UI32* actual_time_ms)
                         if (AP4_SUCCEEDED(result)) {
                             AP4_Atom* mfra = NULL;
                             AP4_LargeSize available = mfra_size;
-                            AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(*m_FragmentStream, available, mfra);
+                            AP4_DefaultAtomFactory atom_factory;
+                            atom_factory.CreateAtomFromStream(*m_FragmentStream, available, mfra);
                             m_Mfra = AP4_DYNAMIC_CAST(AP4_ContainerAtom, mfra);
                         }
                     }
@@ -274,7 +275,20 @@ AP4_LinearReader::SeekTo(AP4_UI32 time_ms, AP4_UI32* actual_time_ms)
         return AP4_FAILURE;
     }
     
-    Reset();
+    // flush any queued samples
+    FlushQueues();
+    
+    // reset tracker states
+    for (unsigned int i=0; i<m_Trackers.ItemCount(); i++) {
+        if (m_Trackers[i]->m_SampleTableIsOwned) {
+            delete m_Trackers[i]->m_SampleTable;
+        }
+        delete m_Trackers[i]->m_NextSample;
+        m_Trackers[i]->m_SampleTable     = NULL;
+        m_Trackers[i]->m_NextSample      = NULL;
+        m_Trackers[i]->m_NextSampleIndex = 0;
+        m_Trackers[i]->m_Eos             = false;
+    }
         
     return AP4_SUCCESS;
 }
@@ -295,10 +309,10 @@ AP4_LinearReader::ProcessTrack(AP4_Track* track)
 |   AP4_LinearReader::ProcessMoof
 +---------------------------------------------------------------------*/
 AP4_Result
-AP4_LinearReader::ProcessMoof(AP4_ContainerAtom* moof,
-  AP4_Position       moof_offset,
-  AP4_Position       mdat_payload_offset,
-  AP4_UI64 mdat_payload_size)
+AP4_LinearReader::ProcessMoof(AP4_ContainerAtom* moof, 
+                              AP4_Position       moof_offset, 
+                              AP4_Position       mdat_payload_offset,
+                              AP4_UI64 mdat_payload_size)
 {
     AP4_Result result;
    
@@ -317,16 +331,16 @@ AP4_LinearReader::ProcessMoof(AP4_ContainerAtom* moof,
         tracker->m_SampleTable = NULL;
         tracker->m_NextSampleIndex = 0;
         for (unsigned int j=0; j<ids.ItemCount(); j++) {
-            if (ids.ItemCount()==1 || ids[j] == tracker->m_Track->GetId()) {
+            if (ids[j] == tracker->m_Track->GetId()) {
                 AP4_FragmentSampleTable* sample_table = NULL;
-                result = m_Fragment->CreateSampleTable(&m_Movie,
-                  ids[j],
-                  m_FragmentStream,
-                  moof_offset,
-                  mdat_payload_offset,
-                  mdat_payload_size,
-                  tracker->m_NextDts,
-                  sample_table);
+                result = m_Fragment->CreateSampleTable(&m_Movie, 
+                                                       ids[j], 
+                                                       m_FragmentStream, 
+                                                       moof_offset, 
+                                                       mdat_payload_offset,
+                                                       mdat_payload_size,
+                                                       tracker->m_NextDts,
+                                                       sample_table);
                 if (AP4_FAILED(result)) return result;
                 tracker->m_SampleTable = sample_table;
                 tracker->m_SampleTableIsOwned = true;
@@ -348,32 +362,36 @@ AP4_LinearReader::AdvanceFragment()
     AP4_Result result;
      
     // go the the start of the next fragment
-		if (m_NextFragmentPosition)
-		{
-			result = m_FragmentStream->Seek(m_NextFragmentPosition);
-			if (AP4_FAILED(result)) return result;
-		}
-		
+    result = m_FragmentStream->Seek(m_NextFragmentPosition);
+    if (AP4_FAILED(result)) return result;
+    m_CurrentFragmentPosition = m_NextFragmentPosition;
 
     // read atoms until we find a moof
     assert(m_HasFragments);
     if (!m_FragmentStream) return AP4_ERROR_INVALID_STATE;
+    AP4_DefaultAtomFactory atom_factory;
     do {
         AP4_Atom* atom = NULL;
-        result = AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(*m_FragmentStream, atom);
+        AP4_Position last_position = 0;
+        m_FragmentStream->Tell(last_position);
+        result = atom_factory.CreateAtomFromStream(*m_FragmentStream, atom);
         if (AP4_SUCCEEDED(result)) {
             if (atom->GetType() == AP4_ATOM_TYPE_MOOF) {
                 AP4_ContainerAtom* moof = AP4_DYNAMIC_CAST(AP4_ContainerAtom, atom);
                 if (moof) {
+                    // remember where the moof started
+                    m_CurrentFragmentPosition = last_position;
+
                     // remember where we are in the stream
                     AP4_Position position = 0;
                     m_FragmentStream->Tell(position);
         
+                    
+
                     // compute where the next fragment will be
                     AP4_UI32 size;
                     AP4_UI32 type;
                     AP4_UI64 size_64 = 0;
-
                     m_FragmentStream->Tell(position);
                     result = m_FragmentStream->ReadUI32(size);
                     if (AP4_FAILED(result)) return AP4_SUCCESS; // can't read more
@@ -382,6 +400,7 @@ AP4_LinearReader::AdvanceFragment()
                     if (size == 0) {
                         m_NextFragmentPosition = 0;
                     } else if (size == 1) {
+                        
                         result = m_FragmentStream->ReadUI64(size_64);
                         if (AP4_FAILED(result)) return AP4_SUCCESS; // can't read more
                         m_NextFragmentPosition = position+size_64;
@@ -390,7 +409,7 @@ AP4_LinearReader::AdvanceFragment()
                         m_NextFragmentPosition = position+size;
                         size_64 = size;
                     }
-
+                    
                     // process the movie fragment
                     result = ProcessMoof(moof, position - atom->GetSize(), position + 8, size_64 - 8);
                     if (AP4_FAILED(result)) return result;
@@ -414,11 +433,7 @@ AP4_LinearReader::AdvanceFragment()
 AP4_Result
 AP4_LinearReader::Advance(bool read_data)
 {
-    // first, check if we have space to advance
-    if (m_BufferFullness >= m_MaxBufferFullness) {
-        return AP4_ERROR_NOT_ENOUGH_SPACE;
-    }
-    
+
     AP4_UI64 min_offset = (AP4_UI64)(-1);
     Tracker* next_tracker = NULL;
     for (;;) {
@@ -431,9 +446,10 @@ AP4_LinearReader::Advance(bool read_data)
             if (tracker->m_NextSample == NULL) {
                 if (tracker->m_NextSampleIndex >= tracker->m_SampleTable->GetSampleCount()) {
                     if (!m_HasFragments) tracker->m_Eos = true;
-                    if (tracker->m_SampleTableIsOwned)
+                    if (tracker->m_SampleTableIsOwned) {
                         delete tracker->m_SampleTable;
-                    tracker->m_SampleTable = NULL;
+                        tracker->m_SampleTable = NULL;
+                    }
                     continue;
                 }
                 tracker->m_NextSample = new AP4_Sample();
@@ -553,6 +569,63 @@ AP4_LinearReader::ReadNextSample(AP4_UI32        track_id,
 }
 
 /*----------------------------------------------------------------------
+|   AP4_LinearReader::ReadNextSample
++---------------------------------------------------------------------*/
+AP4_Result 
+AP4_LinearReader::ReadNextSample(AP4_Sample&     sample,
+                                 AP4_DataBuffer* sample_data,
+                                 AP4_UI32&       track_id)
+{
+    if (m_Trackers.ItemCount() == 0) {
+        track_id = 0;
+        return AP4_ERROR_NO_SUCH_ITEM;
+    }
+    
+    // return the oldest buffered sample, if any
+    AP4_UI64 min_offset = (AP4_UI64)(-1);
+    Tracker* next_tracker = NULL;
+    for (;;) {
+        for (unsigned int i=0; i<m_Trackers.ItemCount(); i++) {
+            Tracker* tracker = m_Trackers[i];
+            if (tracker->m_Eos) continue;
+            
+            AP4_List<SampleBuffer>::Item* item = tracker->m_Samples.FirstItem();
+            if (item) {
+                AP4_UI64 offset = item->GetData()->m_Sample->GetOffset();
+                if (offset < min_offset) {
+                    min_offset = offset;
+                    next_tracker = tracker;
+                }
+            }
+        }
+        
+        // return the sample if we have found a tracker
+        if (next_tracker) {
+            PopSample(next_tracker, sample, sample_data);
+            track_id = next_tracker->m_Track->GetId();
+            return AP4_SUCCESS;
+        }
+        
+        // nothing found, read one more sample
+        AP4_Result result = Advance(sample_data != NULL);
+        if (AP4_FAILED(result)) return result;
+    }
+    
+    // unreachable - return AP4_ERROR_EOS;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_LinearReader::ReadNextSample
++---------------------------------------------------------------------*/
+AP4_Result 
+AP4_LinearReader::ReadNextSample(AP4_Sample&     sample,
+                                 AP4_DataBuffer& sample_data,
+                                 AP4_UI32&       track_id)
+{
+    return ReadNextSample(sample, &sample_data, track_id);
+}
+
+/*----------------------------------------------------------------------
 |   AP4_LinearReader::GetSample
 +---------------------------------------------------------------------*/
 AP4_Result AP4_LinearReader::GetSample(AP4_UI32 track_id, AP4_Sample &sample, AP4_Ordinal sample_index)
@@ -619,63 +692,6 @@ AP4_LinearReader::SeekSample(AP4_UI32 track_id, AP4_UI64 ts, AP4_Ordinal &sample
     sample_index = 0;
   }
   return SetSampleIndex(tracker->m_Track->GetId(), sample_index);
-}
-
-/*----------------------------------------------------------------------
-|   AP4_LinearReader::ReadNextSample
-+---------------------------------------------------------------------*/
-AP4_Result 
-AP4_LinearReader::ReadNextSample(AP4_Sample&     sample,
-                                 AP4_DataBuffer* sample_data,
-                                 AP4_UI32&       track_id)
-{
-    if (m_Trackers.ItemCount() == 0) {
-        track_id = 0;
-        return AP4_ERROR_NO_SUCH_ITEM;
-    }
-    
-    // return the oldest buffered sample, if any
-    AP4_UI64 min_offset = (AP4_UI64)(-1);
-    Tracker* next_tracker = NULL;
-    for (;;) {
-        for (unsigned int i=0; i<m_Trackers.ItemCount(); i++) {
-            Tracker* tracker = m_Trackers[i];
-            if (tracker->m_Eos) continue;
-            
-            AP4_List<SampleBuffer>::Item* item = tracker->m_Samples.FirstItem();
-            if (item) {
-                AP4_UI64 offset = item->GetData()->m_Sample->GetOffset();
-                if (offset < min_offset) {
-                    min_offset = offset;
-                    next_tracker = tracker;
-                }
-            }
-        }
-        
-        // return the sample if we have found a tracker
-        if (next_tracker) {
-            PopSample(next_tracker, sample, sample_data);
-            track_id = next_tracker->m_Track->GetId();
-            return AP4_SUCCESS;
-        }
-        
-        // nothing found, read one more sample
-        AP4_Result result = Advance(sample_data != NULL);
-        if (AP4_FAILED(result)) return result;
-    }
-    
-    // unreachable - return AP4_ERROR_EOS;
-}
-
-/*----------------------------------------------------------------------
-|   AP4_LinearReader::ReadNextSample
-+---------------------------------------------------------------------*/
-AP4_Result 
-AP4_LinearReader::ReadNextSample(AP4_Sample&     sample,
-                                 AP4_DataBuffer& sample_data,
-                                 AP4_UI32&       track_id)
-{
-    return ReadNextSample(sample, &sample_data, track_id);
 }
 
 /*----------------------------------------------------------------------

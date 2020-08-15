@@ -37,7 +37,6 @@
 #include "Ap4MvhdAtom.h"
 #include "Ap4Track.h"
 #include "Ap4List.h"
-#include "Ap4PsshAtom.h"
 
 /*----------------------------------------------------------------------
 |   class references
@@ -60,9 +59,8 @@ public:
     AP4_MoovAtom* GetMoovAtom() { return m_MoovAtom;}
     void SetMoovAtom(AP4_MoovAtom* atom) { m_MoovAtom = atom; }
     AP4_MvhdAtom* GetMvhdAtom() { return m_MvhdAtom;}
-	AP4_Array<AP4_PsshAtom*>& GetPsshAtoms()   { return m_PsshAtoms; }
-
-	AP4_List<AP4_Track>& GetTracks() { return m_Tracks; }
+    AP4_List<AP4_Track>& GetTracks() { return m_Tracks; }
+    AP4_Array<AP4_PsshAtom*>& GetPsshAtoms() { return m_PsshAtoms; }
     AP4_Track*   GetTrack(AP4_UI32 track_id);
     AP4_Track*   GetTrack(AP4_Track::Type type, AP4_Ordinal index = 0);
     AP4_Result   AddTrack(AP4_Track* track);
@@ -76,9 +74,8 @@ private:
     AP4_MoovAtom*       m_MoovAtom;
     bool                m_MoovAtomIsOwned;
     AP4_MvhdAtom*       m_MvhdAtom;
-	AP4_Array<AP4_PsshAtom*> m_PsshAtoms;
-
-	AP4_List<AP4_Track> m_Tracks;
+    AP4_List<AP4_Track> m_Tracks;
+    AP4_Array<AP4_PsshAtom*> m_PsshAtoms;
 };
 
 #endif // _AP4_MOVIE_H_
