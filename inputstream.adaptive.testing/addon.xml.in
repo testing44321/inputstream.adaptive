@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
-  id="inputstream.adaptive"
+  id="inputstream.adaptive.testing"
   version="2.6.0"
-  name="InputStream Adaptive"
+  name="InputStream Adaptive Testing"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
   <extension
