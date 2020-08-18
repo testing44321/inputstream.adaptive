@@ -136,14 +136,14 @@ index 0000000..3cc9eea
 +        bool doCopy = true;
 +        std::string dstfile = xbmcaltbinaddons + kodi::vfs::GetFileName(path);
 +
-+        kodi::vfs::FileStatus dstFileStat;
++        STAT_STRUCTURE dstFileStat;
 +        if (kodi::vfs::StatFile(dstfile, dstFileStat))
 +        {
-+          kodi::vfs::FileStatus srcFileStat;
++          STAT_STRUCTURE srcFileStat;
 +          if (kodi::vfs::StatFile(path, srcFileStat))
 +          {
-+            if (dstFileStat.GetSize() == srcFileStat.GetSize() &&
-+                dstFileStat.GetModificationTime() > srcFileStat.GetModificationTime())
++            if (dstFileStat.size == srcFileStat.size &&
++                dstFileStat.modificationTime.tv_sec > srcFileStat.modificationTime.tv_sec)
 +              doCopy = false;
 +          }
 +        }
