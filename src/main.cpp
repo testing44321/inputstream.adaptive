@@ -3427,9 +3427,9 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
             continue;
         }
         iids.m_streamIds[iids.m_streamCount++] =
-            i + m_session->IsLive()
+            m_session->IsLive()
                 ? i + (m_session->GetStream(i)->stream_.getPeriod()->sequence_ + 1) * 1000
-                : period_id * 1000;
+                : i + period_id * 1000;
       }
     }
   }
