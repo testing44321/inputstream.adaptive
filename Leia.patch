@@ -1,0 +1,420 @@
+diff --git a/src/DllHelper.h b/src/DllHelper.h
+new file mode 100644
+index 0000000..3cc9eea
+--- /dev/null
++++ b/src/DllHelper.h
+@@ -0,0 +1,211 @@
++/*
++ *  Copyright (C) 2005-2018 Team Kodi
++ *  This file is part of Kodi - https://kodi.tv
++ *
++ *  SPDX-License-Identifier: GPL-2.0-or-later
++ *  See LICENSES/README.md for more information.
++ */
++
++#pragma once
++
++#ifdef __cplusplus
++
++#include <string>
++
++#include <dlfcn.h>
++#include <kodi/AddonBase.h>
++#include <kodi/Filesystem.h>
++
++//==============================================================================
++/// @ingroup cpp_kodi_tools_CDllHelper
++/// @brief Macro to translate the given pointer value name of functions to
++/// requested function name.
++///
++/// @note This should always be used and does the work of
++/// @ref kodi::tools::CDllHelper::RegisterSymbol().
++///
++#define REGISTER_DLL_SYMBOL(functionPtr) \
++  kodi::tools::CDllHelper::RegisterSymbol(functionPtr, #functionPtr)
++//------------------------------------------------------------------------------
++
++namespace kodi
++{
++namespace tools
++{
++
++//==============================================================================
++/// @defgroup cpp_kodi_tools_CDllHelper class CDllHelper
++/// @ingroup cpp_kodi_tools
++/// @brief **Class to help with load of shared library functions**\n
++/// You can add them as parent to your class and to help with load of shared
++/// library functions.
++///
++/// @note To use on Windows must you also include [dlfcn-win32](https://github.com/dlfcn-win32/dlfcn-win32)
++/// on your addon!\n\n
++/// Furthermore, this allows the use of Android where the required library is
++/// copied to an EXE useable folder.
++///
++///
++/// ----------------------------------------------------------------------------
++///
++/// **Example:**
++/// ~~~~~~~~~~~~~{.cpp}
++///
++/// #include <kodi/tools/DllHelper.h>
++///
++/// ...
++/// class CMyInstance : public kodi::addon::CInstanceAudioDecoder,
++///                     private kodi::tools::CDllHelper
++/// {
++/// public:
++///   CMyInstance(KODI_HANDLE instance, const std::string& kodiVersion);
++///   bool Start();
++///
++///   ...
++///
++///   // The pointers for on shared library exported functions
++///   int (*Init)();
++///   void (*Cleanup)();
++///   int (*GetLength)();
++/// };
++///
++/// CMyInstance::CMyInstance(KODI_HANDLE instance, const std::string& kodiVersion)
++///   : CInstanceAudioDecoder(instance, kodiVersion)
++/// {
++/// }
++///
++/// bool CMyInstance::Start()
++/// {
++///   std::string lib = kodi::GetAddonPath("myLib.so");
++///   if (!LoadDll(lib)) return false;
++///   if (!REGISTER_DLL_SYMBOL(Init)) return false;
++///   if (!REGISTER_DLL_SYMBOL(Cleanup)) return false;
++///   if (!REGISTER_DLL_SYMBOL(GetLength)) return false;
++///
++///   Init();
++///   return true;
++/// }
++/// ...
++/// ~~~~~~~~~~~~~
++///
++///@{
++class ATTRIBUTE_HIDDEN CDllHelper
++{
++public:
++  //============================================================================
++  /// @ingroup cpp_kodi_tools_CDllHelper
++  /// @brief Class constructor.
++  ///
++  CDllHelper() = default;
++  //----------------------------------------------------------------------------
++
++  //============================================================================
++  /// @ingroup cpp_kodi_tools_CDllHelper
++  /// @brief Class destructor.
++  ///
++  virtual ~CDllHelper()
++  {
++    if (m_dll)
++      dlclose(m_dll);
++  }
++  //----------------------------------------------------------------------------
++
++  //============================================================================
++  /// @ingroup cpp_kodi_tools_CDllHelper
++  /// @brief Function to load requested library.
++  ///
++  /// @param[in] path The path with filename of shared library to load
++  /// @return true if load was successful done
++  ///
++  bool LoadDll(std::string path)
++  {
++#if defined(TARGET_ANDROID)
++    if (kodi::vfs::FileExists(path))
++    {
++      // Check already defined for "xbmcaltbinaddons", if yes no copy necassary.
++      std::string xbmcaltbinaddons =
++          kodi::vfs::TranslateSpecialProtocol("special://xbmcaltbinaddons/");
++      if (path.compare(0, xbmcaltbinaddons.length(), xbmcaltbinaddons) != 0)
++      {
++        bool doCopy = true;
++        std::string dstfile = xbmcaltbinaddons + kodi::vfs::GetFileName(path);
++
++        kodi::vfs::FileStatus dstFileStat;
++        if (kodi::vfs::StatFile(dstfile, dstFileStat))
++        {
++          kodi::vfs::FileStatus srcFileStat;
++          if (kodi::vfs::StatFile(path, srcFileStat))
++          {
++            if (dstFileStat.GetSize() == srcFileStat.GetSize() &&
++                dstFileStat.GetModificationTime() > srcFileStat.GetModificationTime())
++              doCopy = false;
++          }
++        }
++
++        if (doCopy)
++        {
++          kodi::Log(ADDON_LOG_DEBUG, "Caching '%s' to '%s'", path.c_str(), dstfile.c_str());
++          if (!kodi::vfs::CopyFile(path, dstfile))
++          {
++            kodi::Log(ADDON_LOG_ERROR, "Failed to cache '%s' to '%s'", path.c_str(),
++                      dstfile.c_str());
++            return false;
++          }
++        }
++
++        path = dstfile;
++      }
++    }
++    else
++    {
++      return false;
++    }
++#endif
++
++    m_dll = dlopen(path.c_str(), RTLD_LAZY);
++    if (m_dll == nullptr)
++    {
++      kodi::Log(ADDON_LOG_ERROR, "Unable to load %s", dlerror());
++      return false;
++    }
++    return true;
++  }
++  //----------------------------------------------------------------------------
++
++  //============================================================================
++  /// @ingroup cpp_kodi_tools_CDllHelper
++  /// @brief Function to register requested library symbol.
++  ///
++  /// @warning This function should not be used, use instead the macro
++  /// @ref REGISTER_DLL_SYMBOL to register the symbol pointer.
++  ///
++  ///
++  /// Use this always via Macro, e.g.:
++  /// ~~~~~~~~~~~~~{.cpp}
++  /// if (!REGISTER_DLL_SYMBOL(Init))
++  ///   return false;
++  /// ~~~~~~~~~~~~~
++  ///
++  template <typename T>
++  bool RegisterSymbol(T& functionPtr, const char* strFunctionPtr)
++  {
++    functionPtr = reinterpret_cast<T>(dlsym(m_dll, strFunctionPtr));
++    if (functionPtr == nullptr)
++    {
++      kodi::Log(ADDON_LOG_ERROR, "Unable to assign function %s", dlerror());
++      return false;
++    }
++    return true;
++  }
++  //----------------------------------------------------------------------------
++
++private:
++  void* m_dll = nullptr;
++};
++///@}
++//------------------------------------------------------------------------------
++
++} /* namespace tools */
++} /* namespace kodi */
++
++#endif /* __cplusplus */
+diff --git a/src/main.cpp b/src/main.cpp
+index 6be407c..8ee0568 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -131,7 +131,7 @@ public:
+ 
+   virtual bool CURLOpen(void* file) override
+   {
+-    return static_cast<kodi::vfs::CFile*>(file)->CURLOpen(ADDON_READ_NO_CACHE);
++    return static_cast<kodi::vfs::CFile*>(file)->CURLOpen(OpenFileFlags::READ_NO_CACHE);
+   };
+ 
+   virtual size_t ReadFile(void* file, void* lpBuf, size_t uiBufSize) override
+@@ -279,7 +279,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
+     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+   }
+ 
+-  if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
++  if (!file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE))
+   {
+     kodi::Log(ADDON_LOG_ERROR, "Cannot download %s", url);
+     return false;
+@@ -329,8 +329,8 @@ RETRY:
+     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+   }
+ 
+-  if (file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE |
+-                    ADDON_READ_AUDIO_VIDEO))
++  if (file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE |
++                    OpenFileFlags::READ_AUDIO_VIDEO))
+   {
+     int returnCode = -1;
+     std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
+@@ -1901,7 +1901,20 @@ public:
+ 
+   bool GetInformation(INPUTSTREAM_INFO& info) override
+   {
+-    return WebmReader::GetInformation(info);
++    bool ret = WebmReader::GetInformation(info);
++    // kodi supports VP9 without extrada since addon api version was introduced.
++    // For older kodi versions (without api version) we have to fake extra-data
++    if (!info.m_ExtraSize && strcmp(info.m_codecName, "vp9") == 0 &&
++        kodi::addon::CAddonBase::m_strGlobalApiVersion.empty())
++    {
++      info.m_ExtraSize = 4;
++      uint8_t* annexb = static_cast<uint8_t*>(malloc(4));
++      annexb[0] = annexb[1] = annexb[2] = 0;
++      annexb[3] = 1;
++      info.m_ExtraData = annexb;
++      return true;
++    }
++    return ret;
+   }
+ 
+   bool TimeSeek(uint64_t pts, bool preceeding) override
+@@ -3158,10 +3171,8 @@ class CInputStreamAdaptive;
+ class CVideoCodecAdaptive : public kodi::addon::CInstanceVideoCodec
+ {
+ public:
+-  CVideoCodecAdaptive(KODI_HANDLE instance, const std::string& version);
+-  CVideoCodecAdaptive(KODI_HANDLE instance,
+-                      const std::string& version,
+-                      CInputStreamAdaptive* parent);
++  CVideoCodecAdaptive(KODI_HANDLE instance);
++  CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive* parent);
+   virtual ~CVideoCodecAdaptive();
+ 
+   bool Open(VIDEOCODEC_INITDATA& initData) override;
+@@ -3191,9 +3202,8 @@ class CInputStreamAdaptive : public kodi::addon::CInstanceInputStream
+ public:
+   CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion);
+   ADDON_STATUS CreateInstance(int instanceType,
+-                              const std::string& instanceID,
++                              std::string instanceID,
+                               KODI_HANDLE instance,
+-                              const std::string& version,
+                               KODI_HANDLE& addonInstance) override;
+ 
+   bool Open(INPUTSTREAM& props) override;
+@@ -3209,6 +3219,8 @@ public:
+   bool PosTime(int ms) override;
+   int GetTotalTime() override;
+   int GetTime() override;
++  bool CanPauseStream() override;
++  bool CanSeekStream() override;
+   bool IsRealTimeStream() override;
+ 
+ #if INPUTSTREAM_VERSION_LEVEL > 1
+@@ -3245,14 +3257,13 @@ CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance, const std::stri
+ }
+ 
+ ADDON_STATUS CInputStreamAdaptive::CreateInstance(int instanceType,
+-                                                  const std::string& instanceID,
++                                                  std::string instanceID,
+                                                   KODI_HANDLE instance,
+-                                                  const std::string& version,
+                                                   KODI_HANDLE& addonInstance)
+ {
+   if (instanceType == ADDON_INSTANCE_VIDEOCODEC)
+   {
+-    addonInstance = new CVideoCodecAdaptive(instance, version, this);
++    addonInstance = new CVideoCodecAdaptive(instance, this);
+     return ADDON_STATUS_OK;
+   }
+   return ADDON_STATUS_NOT_IMPLEMENTED;
+@@ -3830,6 +3841,16 @@ int CInputStreamAdaptive::GetTime()
+   return timeMs;
+ }
+ 
++bool CInputStreamAdaptive::CanPauseStream(void)
++{
++  return true;
++}
++
++bool CInputStreamAdaptive::CanSeekStream(void)
++{
++  return m_session && !m_session->IsLive();
++}
++
+ bool CInputStreamAdaptive::IsRealTimeStream()
+ {
+   return m_session && m_session->IsLive();
+@@ -3863,18 +3884,16 @@ bool CInputStreamAdaptive::SeekChapter(int ch)
+ #endif
+ /*****************************************************************************************************/
+ 
+-CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance, const std::string& version)
+-  : CInstanceVideoCodec(instance, version),
++CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance)
++  : CInstanceVideoCodec(instance),
+     m_session(nullptr),
+     m_state(0),
+     m_name("inputstream.adaptive.decoder")
+ {
+ }
+ 
+-CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance,
+-                                         const std::string& version,
+-                                         CInputStreamAdaptive* parent)
+-  : CInstanceVideoCodec(instance, version), m_session(parent->GetSession()), m_state(0)
++CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive* parent)
++  : CInstanceVideoCodec(instance), m_session(parent->GetSession()), m_state(0)
+ {
+ }
+ 
+@@ -3979,16 +3998,20 @@ void CVideoCodecAdaptive::Reset()
+ 
+ /*****************************************************************************************************/
+ 
+-class ATTRIBUTE_HIDDEN CMyAddon : public kodi::addon::CAddonBase
++class CMyAddon : public kodi::addon::CAddonBase
+ {
+ public:
+   CMyAddon();
+   virtual ~CMyAddon();
+   ADDON_STATUS CreateInstance(int instanceType,
+-                              const std::string& instanceID,
++                              std::string instanceID,
+                               KODI_HANDLE instance,
+-                              const std::string& version,
+                               KODI_HANDLE& addonInstance) override;
++  ADDON_STATUS CreateInstanceEx(int instanceType,
++                                std::string instanceID,
++                                KODI_HANDLE instance,
++                                KODI_HANDLE& addonInstance,
++                                const std::string& version) override;
+ };
+ 
+ CMyAddon::CMyAddon()
+@@ -4003,10 +4026,18 @@ CMyAddon::~CMyAddon()
+ }
+ 
+ ADDON_STATUS CMyAddon::CreateInstance(int instanceType,
+-                                      const std::string& instanceID,
++                                      std::string instanceID,
+                                       KODI_HANDLE instance,
+-                                      const std::string& version,
+                                       KODI_HANDLE& addonInstance)
++{
++  return CreateInstanceEx(instanceType, instanceID, instance, addonInstance, "");
++}
++
++ADDON_STATUS CMyAddon::CreateInstanceEx(int instanceType,
++                                        std::string instanceID,
++                                        KODI_HANDLE instance,
++                                        KODI_HANDLE& addonInstance,
++                                        const std::string& version)
+ {
+   if (instanceType == ADDON_INSTANCE_INPUTSTREAM)
+   {
+diff --git a/src/main.h b/src/main.h
+index 66d03a5..3d99163 100644
+--- a/src/main.h
++++ b/src/main.h
+@@ -20,7 +20,7 @@
+ #include <vector>
+ 
+ #include <kodi/addon-instance/Inputstream.h>
+-#include <kodi/tools/DllHelper.h>
++#include "DllHelper.h"
+ 
+ #include "common/AdaptiveTree.h"
+ #include "common/AdaptiveStream.h"
