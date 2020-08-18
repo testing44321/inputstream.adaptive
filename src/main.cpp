@@ -2108,9 +2108,8 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
 
   std::vector<std::string> searchPaths(2);
 #ifdef ANDROID
-  searchPaths[0] = getenv("KODI_ANDROID_LIBS")
-                       ? getenv("KODI_ANDROID_LIBS")
-                       : kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/");
+  searchPaths[0] =
+      kodi::vfs::TranslateSpecialProtocol("special://home/addons/inputstream.adaptive.testing/");
 #else
   searchPaths[0] =
       kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive.testing/");
