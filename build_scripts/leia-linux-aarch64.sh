@@ -2,8 +2,8 @@
 
 cd $HOME
 
-rm -r kodi
-rm -r tools
+rm -rf kodi
+rm -rf tools
 rm -r addon-inputstream.adaptive*.zip
 
 apt-get update
@@ -18,7 +18,7 @@ cd $HOME/kodi/tools/depends
 ### ADD-ON SOURCE ###
 git clone https://github.com/johnny5-is-alive/inputstream.adaptive.testing $HOME/kodi/tools/depends/target/binary-addons/inputstream.adaptive
 
-### LEIA ###
+### Leia Patch ###
 git -C $HOME/kodi/tools/depends/target/binary-addons/inputstream.adaptive apply Leia.patch
 
 ### Clean ###

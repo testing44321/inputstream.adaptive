@@ -7,13 +7,13 @@ rm -rf tools
 rm -r addon-inputstream.adaptive*.zip
 
 apt-get update
-apt install -y --no-install-recommends build-essential git cmake
+apt install -y --no-install-recommends build-essential git cmake crossbuild-essential-armhf
 ​
 ### CONFIRE KODI BUILD TOOLS ###
 git clone https://github.com/xbmc/xbmc --branch master --depth 1 $HOME/kodi
 cd $HOME/kodi/tools/depends
 ./bootstrap
-./configure --host=x86_64-linux --disable-debug --prefix=$HOME/tools/kodi-depends
+./configure --host=arm-linux-gnueabihf --disable-debug --prefix=$HOME/tools/kodi-depends
 
 ### ADD-ON SOURCE ###
 git clone https://github.com/johnny5-is-alive/inputstream.adaptive.testing $HOME/kodi/tools/depends/target/binary-addons/inputstream.adaptive
