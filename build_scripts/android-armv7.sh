@@ -1,5 +1,5 @@
 #!/bin/bash
-#Ubuntu 18.04.4 LTS
+#Ubuntu 16.04 LTS
 
 version=${1,,}
 
@@ -24,9 +24,10 @@ rm -rf .android
 rm -rf inputstream.adaptive
 rm -r $zip_name
 
-apt-get update
-apt install -y --no-install-recommends build-essential git cmake unzip aria2 default-jdk python3 python3-distutils
-ln -s /usr/bin/python3.6 /usr/bin/python
+apt-get update && apt-get -y update
+apt install -y --no-install-recommends build-essential git cmake unzip aria2 default-jdk python3
+rm -r /usr/bin/python
+ln -s /usr/bin/python3 /usr/bin/python
 
 ### ANDROID TOOLS ###
 aria2c -x 4 -s 4 https://dl.google.com/android/repository/android-ndk-$ndk_ver-linux-x86_64.zip
@@ -43,7 +44,7 @@ yes | ./sdkmanager --sdk_root=$HOME/tools/android-sdk "platforms;android-28"
 yes | ./sdkmanager --sdk_root=$HOME/tools/android-sdk "build-tools;28.0.3"
 
 cd $HOME/tools/android-ndk/build/tools
-./make-standalone-toolchain.sh --force --install-dir=$HOME/tools/toolchain --platform=android-21 --toolchain=arm-linux-androideabi
+./make-standalone-toolchain.sh --verbose --force --install-dir=$HOME/tools/toolchain --platform=android-21 --toolchain=arm-linux-androideabi
 toolchain=$HOME/tools/toolchain
 
 ### CONFIRE KODI BUILD TOOLS ###

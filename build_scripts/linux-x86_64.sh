@@ -1,5 +1,5 @@
 #!/bin/bash
-#Ubuntu 18.04.4 LTS
+#Ubuntu 16.04 LTS
 
 version=${1,,}
 
@@ -17,12 +17,13 @@ zip_name=linux-x86_64-$version.zip
 cd $HOME
 
 rm -rf kodi
+rm -rf tools
 rm -rf inputstream.adaptive
 rm -r $zip_name
 
-apt-get update
+apt-get update && apt-get -y update
 apt install -y --no-install-recommends build-essential git cmake
-​
+
 ### CONFIRE KODI BUILD TOOLS ###
 git clone https://github.com/xbmc/xbmc --branch $kodi_branch --depth 1 $HOME/kodi
 cd $HOME/kodi/tools/depends
