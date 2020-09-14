@@ -71,7 +71,7 @@ import zipfile
 
 
 AddonMetadata = collections.namedtuple('AddonMetadata',
-                                       ('id', 'version', 'root'))
+                                       ('id', 'version', 'root', 'platform'))
 WorkerResult = collections.namedtuple('WorkerResult',
                                       ('addon_metadata', 'exc_info'))
 AddonWorker = collections.namedtuple('AddonWorker',
@@ -105,7 +105,9 @@ def parse_metadata(metadata_file):
     # Parse the addon.xml metadata.
     tree = xml.etree.ElementTree.parse(metadata_file)
     root = tree.getroot()
-    addon_metadata = AddonMetadata(root.get('id'), root.get('version'), root)
+    platform = root.find('./extension[@point="xbmc.addon.metadata"]/platform')
+    addon_metadata = AddonMetadata(
+        root.get('id'), root.get('version'), root, platform)
     # Validate the add-on ID.
     if (addon_metadata.id is None or
             re.search('[^a-z0-9._-]', addon_metadata.id)):
@@ -411,8 +413,15 @@ def create_repository(addon_locations, target_folder, info_path,
     for addon_metadata in metadata:
         # Remove existing addon from doc
         for addon in root:
+            remove = False
             if addon.attrib.get('id') == addon_metadata.id:
-                root.remove(addon)
+                if addon_metadata.platform is None:
+                    root.remove(addon)
+                else:
+                    platform = addon.find(
+                        './extension[@point="xbmc.addon.metadata"]/platform')
+                    if platform.text == addon_metadata.platform.text:
+                        root.remove(addon)         
         tree = root.append(addon_metadata.root)
 
     tree = xml.etree.ElementTree.ElementTree(root)
