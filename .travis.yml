@@ -7,6 +7,9 @@ language: cpp
 # Linux. We need Trusty in order to get up to date versions of
 # cmake and g++.
 #
+git:
+  depth: false
+
 env:
   global:
     - app_id=inputstream.adaptive.testing
