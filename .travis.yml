@@ -38,8 +38,8 @@ script:
   - aria2c -x 4 -s 4 https://dl.google.com/android/repository/android-ndk-$ndk_ver-linux-x86_64.zip
   - aria2c -x 4 -s 4 https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip
   - mkdir -p $HOME/tools/android-sdk
-  - unzip commandlinetools-linux*.zip -d $HOME/tools/android-sdk -q
-  - unzip android-ndk-*.zip -d $HOME/tools && mv $HOME/tools/android-ndk-* $HOME/tools/android-ndk -q
+  - unzip -q commandlinetools-linux*.zip -d $HOME/tools/android-sdk
+  - unzip -q android-ndk-*.zip -d $HOME/tools && mv $HOME/tools/android-ndk-* $HOME/tools/android-ndk
   - cd $HOME/tools/android-sdk/tools/bin
   - touch ../android
   - yes | ./sdkmanager --sdk_root=$HOME/tools/android-sdk platform-tools
