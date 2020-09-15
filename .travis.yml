@@ -68,7 +68,7 @@ script:
   - cd $HOME/.deploy
   - mkdir -p $HOME/temp/${app_id}
   - unzip $HOME/$zip_name -d  $HOME/temp/${app_id}
-  - $HOME/inputstream.adaptive/manage_repo.py $HOME/temp/${app_id}
+  - $TRAVIS_BUILD_DIR/manage_repo.py $HOME/temp/${app_id}
   - git config credential.helper "store --file=.git/credentials"
   - echo "https://${GH_TOKEN}:@github.com" > .git/credentials
   - git add .
