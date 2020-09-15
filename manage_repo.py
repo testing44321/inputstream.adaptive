@@ -264,7 +264,6 @@ def fetch_addon_from_folder(raw_addon_location, target_folder, build_location):
     if not build_location:
         build_location = addon_location
 
-    print("addon_location is {0}".format(addon_location))
     repo = git.Repo(addon_location)
     version = get_version(repo)
 
