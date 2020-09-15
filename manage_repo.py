@@ -264,6 +264,7 @@ def fetch_addon_from_folder(raw_addon_location, target_folder, build_location):
     if not build_location:
         build_location = addon_location
 
+    print("addon_location is {0}".format(addon_location))
     repo = git.Repo(addon_location)
     version = get_version(repo)
 
@@ -360,7 +361,7 @@ def fetch_addon(addon_location, target_folder, result_slot, build_location=None)
                 addon_location, target_folder)
         elif os.path.isdir(addon_location):
             addon_metadata = fetch_addon_from_folder(
-                addon_location, target_folder, git_location)
+                addon_location, target_folder, build_location)
         elif os.path.isfile(addon_location):
             addon_metadata = fetch_addon_from_zip(
                 addon_location, target_folder)
@@ -374,7 +375,7 @@ def fetch_addon(addon_location, target_folder, result_slot, build_location=None)
 def get_addon_worker(addon_location, target_folder, build_location=None):
     result_slot = []
     thread = threading.Thread(target=lambda: fetch_addon(
-        addon_location, target_folder, result_slot, git_location))
+        addon_location, target_folder, result_slot, build_location))
     return AddonWorker(thread, result_slot)
 
 
