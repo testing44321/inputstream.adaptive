@@ -38,8 +38,8 @@ script:
   - aria2c -x 4 -s 4 https://dl.google.com/android/repository/android-ndk-$ndk_ver-linux-x86_64.zip
   - aria2c -x 4 -s 4 https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip
   - mkdir -p $HOME/tools/android-sdk
-  - unzip commandlinetools-linux*.zip -d $HOME/tools/android-sdk
-  - unzip android-ndk-*.zip -d $HOME/tools && mv $HOME/tools/android-ndk-* $HOME/tools/android-ndk
+  - unzip commandlinetools-linux*.zip -d $HOME/tools/android-sdk -q
+  - unzip android-ndk-*.zip -d $HOME/tools && mv $HOME/tools/android-ndk-* $HOME/tools/android-ndk -q
   - cd $HOME/tools/android-sdk/tools/bin
   - touch ../android
   - yes | ./sdkmanager --sdk_root=$HOME/tools/android-sdk platform-tools
@@ -72,5 +72,5 @@ script:
   - git config credential.helper "store --file=.git/credentials"
   - echo "https://${GH_TOKEN}:@github.com" > .git/credentials
   - git add .
-  - git commit --allow-empty -m "$TRAVIS_COMMIT_MSG"
+  - git commit --allow-empty -m "$TRAVIS_COMMIT_MESSAGE"
   - git push
