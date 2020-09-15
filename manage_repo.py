@@ -257,17 +257,20 @@ def fetch_addon_from_git(addon_location, target_folder):
         shutil.rmtree(clone_folder, ignore_errors=False)
 
 
-def fetch_addon_from_folder(raw_addon_location, target_folder, git_location):
+def fetch_addon_from_folder(raw_addon_location, target_folder, build_location):
     addon_location = os.path.expanduser(raw_addon_location)
-    metadata_path = os.path.join(addon_location, INFO_BASENAME)
+    metadata_path = os.path.join(build_location, INFO_BASENAME)
+    
+    if not build_location:
+        build_location = addon_location
 
-    repo = git.Repo(git_location)
+    repo = git.Repo(addon_location)
     version = get_version(repo)
 
     # Update addon metadata
     update_version(metadata_path, version)
     changelog = generate_changelog(repo)
-    write_changelog_file(addon_location, changelog)
+    write_changelog_file(build_location, changelog)
     update_news(metadata_path, changelog)
 
     addon_metadata = parse_metadata(metadata_path)
@@ -284,7 +287,7 @@ def fetch_addon_from_folder(raw_addon_location, target_folder, git_location):
 
     with zipfile.ZipFile(archive_path, 'w',
                          compression=zipfile.ZIP_DEFLATED) as archive:
-        for (root, dirs, files) in os.walk(addon_location):
+        for (root, dirs, files) in os.walk(build_location):
             # Filter ignored files
             files = (n for n in files
                      if not any(fnmatch.fnmatch(n, i) for i in ignore))
@@ -292,16 +295,16 @@ def fetch_addon_from_folder(raw_addon_location, target_folder, git_location):
             dirs[:] = [d for d in dirs if not d[0] == '.']
 
             relative_root = os.path.join(
-                addon_metadata.id, os.path.relpath(root, addon_location))
+                addon_metadata.id, os.path.relpath(root, build_location))
             for relative_path in files:
                 archive.write(
                     os.path.join(root, relative_path),
                     os.path.join(relative_root, relative_path))
     generate_checksum(archive_path)
 
-    if not os.path.samefile(addon_location, addon_target_folder):
+    if not os.path.samefile(build_location, addon_target_folder):
         copy_metadata_files(
-            addon_location, addon_target_folder, addon_metadata)
+            build_location, addon_target_folder, addon_metadata)
 
     return addon_metadata
 
@@ -350,7 +353,7 @@ def fetch_addon_from_zip(raw_addon_location, target_folder):
     return addon_metadata
 
 
-def fetch_addon(addon_location, target_folder, result_slot, git_location=None):
+def fetch_addon(addon_location, target_folder, result_slot, build_location=None):
     try:
         if is_url(addon_location):
             addon_metadata = fetch_addon_from_git(
@@ -368,22 +371,22 @@ def fetch_addon(addon_location, target_folder, result_slot, git_location=None):
         result_slot.append(WorkerResult(None, sys.exc_info()))
 
 
-def get_addon_worker(addon_location, target_folder, git_location=None):
+def get_addon_worker(addon_location, target_folder, build_location=None):
     result_slot = []
     thread = threading.Thread(target=lambda: fetch_addon(
-        addon_location, target_folder, result_slot, git_location=None))
+        addon_location, target_folder, result_slot, git_location))
     return AddonWorker(thread, result_slot)
 
 
 def create_repository(addon_locations, target_folder, info_path,
-                      checksum_path, is_compressed, git_location=None):
+                      checksum_path, is_compressed, build_location=None):
 
     # Create the target folder.
     if not os.path.isdir(target_folder):
         os.mkdir(target_folder)
 
     # Fetch all the add-on sources in parallel.
-    workers = [get_addon_worker(addon_location, target_folder, git_location)
+    workers = [get_addon_worker(addon_location, target_folder, build_location)
                for addon_location in addon_locations]
 
     for worker in workers:
@@ -453,7 +456,7 @@ def main():
     parser.add_argument('--checksum', '-c',
                         help='Path for the addons.xml.md5 file '
                              '[DATADIR/addons.xml.md5]')
-    parser.add_argument('--gitlocation', '-g',
+    parser.add_argument('--buildlocation', '-b',
                         help='Path to use for git repo')
     parser.add_argument('--compressed', '-z', action='store_true',
                         help='Compress addons.xml with gzip')
@@ -479,7 +482,7 @@ def main():
         else os.path.join(data_path, 'addons.xml.md5'))
 
     create_repository(args.addon, data_path, info_path, checksum_path,
-                      args.compressed, args.gitlocation)
+                      args.compressed, args.buildlocation)
 
 
 if __name__ == "__main__":
