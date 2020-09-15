@@ -67,6 +67,7 @@ script:
   - git clone https://github.com/glennguy/iat-repo.git $HOME/.deploy
   - cd $HOME/.deploy
   - mkdir -p $TRAVIS_BUILD_DIR/.build
+  - ls $TRAVIS_BUILD_DIR
   - unzip $HOME/$zip_name -d  $TRAVIS_BUILD_DIR/.build
   - python $TRAVIS_BUILD_DIR/manage_repo.py $TRAVIS_BUILD_DIR -b $TRAVIS_BUILD_DIR/.build/${app_id}
   - git config credential.helper "store --file=.git/credentials"
