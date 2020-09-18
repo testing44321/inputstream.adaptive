@@ -132,7 +132,7 @@ if [[ $PLATFORM = android ]]; then
 
     mkdir -p $ANDROID_ROOT/android-sdk
     unzip -q $SDK_ZIP -d $ANDROID_ROOT/android-sdk && rm $HOME/$SDK_ZIP
-    unzip -q $NDK_ZIP -d $ANDROID_ROOT && mv $ANDROID_ROOT/$NDK_ZIP $ANDROID_ROOT/android-ndk-$NDK_VER && rm $NDK_ZIP
+    unzip -q $NDK_ZIP -d $ANDROID_ROOT && rm $NDK_ZIP
 
     cd $ANDROID_ROOT/android-sdk/tools/bin
     touch ../android
@@ -140,7 +140,7 @@ if [[ $PLATFORM = android ]]; then
     echo yes | ./sdkmanager --sdk_root=$ANDROID_ROOT/android-sdk "platforms;android-28"
     echo yes | ./sdkmanager --sdk_root=$ANDROID_ROOT/android-sdk "build-tools;28.0.3"
 
-    cd $ANDROID_ROOT/android-ndk/build/tools
+    cd $ANDROID_ROOT/android-ndk-$NDK_VER/build/tools
     ./make-standalone-toolchain.sh --verbose --force --install-dir=$ANDROID_ROOT/toolchain --platform=android-21 --toolchain=${ARCHS[$PLATFORM-$ARCH]}
     TOOLCHAIN=$ANDROID_ROOT/toolchain
     EXTRA_OPTIONS="--with-ndk-api=21 --with-sdk-path=$ANDROID_ROOT/android-sdk --with-ndk-path=$ANDROID_ROOT/android-ndk --with-toolchain=$TOOLCHAIN"
