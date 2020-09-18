@@ -94,7 +94,7 @@ case $ARCH in
         ;;
 esac
 
-ZIP_NAME=$PLATFORM-$ARCH-$KODI_VERSION-$(git describe).zip
+ZIP_NAME=$PLATFORM-$ARCH-$KODI_VERSION-$(git -C $IA_HOME describe).zip
 
 if [[ $REBUILD = yes ]]; then
     if [[ $CLEAN_BUILD = yes ]]; then
