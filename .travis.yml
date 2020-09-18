@@ -37,7 +37,7 @@ before_install:
   - git checkout -b travis
 
 script:
-  - $TRAVIS_BUILD_DIR/build_scripts/build-ia.sh
+  - bash -x $TRAVIS_BUILD_DIR/build_scripts/build-ia.sh
     --android
     --arch aarch64
     --kodiversion leia
