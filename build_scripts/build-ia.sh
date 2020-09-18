@@ -143,7 +143,7 @@ if [[ $PLATFORM = android ]]; then
     cd $ANDROID_ROOT/android-ndk-$NDK_VER/build/tools
     ./make-standalone-toolchain.sh --verbose --force --install-dir=$ANDROID_ROOT/toolchain --platform=android-21 --toolchain=${ARCHS[$PLATFORM-$ARCH]}
     TOOLCHAIN=$ANDROID_ROOT/toolchain
-    EXTRA_OPTIONS="--with-ndk-api=21 --with-sdk-path=$ANDROID_ROOT/android-sdk --with-ndk-path=$ANDROID_ROOT/android-ndk --with-toolchain=$TOOLCHAIN"
+    EXTRA_OPTIONS="--with-ndk-api=21 --with-sdk-path=$ANDROID_ROOT/android-sdk --with-ndk-path=$ANDROID_ROOT/android-ndk-$NDK_VER  --with-toolchain=$TOOLCHAIN"
 fi
 
 ### CONFIRE KODI BUILD TOOLS ###
