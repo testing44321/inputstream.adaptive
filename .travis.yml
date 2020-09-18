@@ -13,7 +13,7 @@ git:
 env:
   global:
     - app_id=inputstream.adaptive.testing
-    - secure: "hLKoLDIWMKZyHE8oF9elBjLw1lllqngPFK2BlEERcV6OVXtCMIeoo3EodQlBdQ2rj3+M2ZO5rLfP08kcIk17YRIkBrSrLk+gziaL1tnK+M52RIfNe0fyc9AK1Ou5GBI7fMENl9FCqUwgJ2vkU18FysnUgx5lALhZkAsuzQ1ysoxW2Wss94dVv0fmEOKmfWc+CRo5LW+8e9carmrgOnopgqZvbBp3B+mDuw9/Ck/8zwKFTyrXk1Ih6cE2a9nEirpYU0czCYBqRhO9oRaeO9KZYbQT66VxwjvpfKe53BatKKXhrSJLU9KM210m9b+6bGB0B+XgeUYVWYO4KPcm/Hc1KNVWgH4GwTywjvkfgAdkHrXxYGWnyu/ziL7hz5MHB8sj4b/RtDB4giM83ApU3evdk7gh4DpCyW2UfgQZA5uaOGREXNUscLbBXfgr6zLkpHVnTJQKdFnOXaXZnzghTwyLBlo/QWBbBZEt76zyp8H+wlSoj8tW1K+kbE92OcAC8UtFsYsjPl10wxHq+CNDneKPIjFTcnVfIRR0DM1x8NvbrWxdGFFSyIdj7BDPnHJ9dO576tBiaJq4jsBuEF/LSJXqT7hw7726FpLZPXxZKLYj0Y3nxZ5sOF3EtnH7SBnITqc0e33av4Pkc5b0jKMTDTeH67umyqvGuhb+zbyj8qRutU4="
+    - secure: "cEcDRo+aWtu0+qCS7oE7bZ23OzbFvsdT1I9P/W2i4VBU9FfDVxuXjX8rG3kUrN7xIxJnEWrJRtrhOHOVjzqZ5tnBsbTLS4mbII4HtPpGpOpxOdnDzeyOa93UgAyMD/SWUFzN/vhgn/LtG0oMqZcQDj7L4ccMkjz4h7075iMxQhSo8vmNyDIpjGwFrHFfifXSZoc0oZsszqXauxLFvPsaXpuTeO86iQdrJ4zUJw+OVnASD6UtQm1LcunJ3N8HsgGKzZGOjUZ2ZxhAf/+00pTOozh6nrlguPs2CgJuHC6J579dckT7OjkjTeGFbqH7bEITQpyH35tXffDs6lptpdcpLjp7m8McAG47CCAyYKmyKRMxTB9M5r4b9QwGsSCO9IxEQQHi/c+WR+bUOp/bYaVYygsJTT+1I0a8mrJ+vOrjhfK1O5pNKNv6Vd1WlTdo8pG6EXMw/P/HpNFpVfHPP0zCNbG+lBCogfaIwVkU+xNWCSXPZC0BbG8Jl/14W1M5scB4sFIYGtdsljOyHYbYTARpwnQS/ar+JpbNOUPkk+/NmKA3YOCQoVi69w/FK4SJR+2e0PCUwES86plYFkg5DzqmR4rpSVshe7dpq6Fl163ktQIfJRvQPvqdfRd/yYtJAMAls7Z7X5UfpjSQR97ndvOx2/cwkdxRTW3dKmWO5rQLhu0="
 
 include:
   - os: linux
@@ -43,7 +43,7 @@ script:
     --kodiversion leia
     --no-apt-install
 
-after_install:
+after_script:
   - git config --global user.email "travis@travis-ci.org"
   - git config --global user.name "Travis CI"
   - cd $HOME/.deploy
