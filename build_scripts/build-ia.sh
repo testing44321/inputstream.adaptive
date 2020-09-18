@@ -199,7 +199,8 @@ echo "$ADDON_ID https://github.com/johnny5-is-alive/$ADDON_ID $KODI_BRANCH" > $A
 
 cd $KODI_GIT/cmake/addons/$ADDON_ID
 
-ls $(dirname "$IA_HOME")
+ls -a $(dirname "$IA_HOME")
+ls -a $IA_HOME
 
 cmake -DCMAKE_BUILD_TYPE=Release -DOVERRIDE_PATHS=ON -DCMAKE_TOOLCHAIN_FILE=$KODI_GIT/cmake/addons/$ADDON_ID/build/depends/share/Toolchain_binaddons.cmake -DADDONS_TO_BUILD=$ADDON_ID -DADDON_SRC_PREFIX="$(dirname "$IA_HOME")" -DADDONS_DEFINITION_DIR=$KODI_GIT/tools/depends/target/binary-addons/addons2 -DPACKAGE_ZIP=1 $KODI_GIT/cmake/addons
 make package-$ADDON_ID
