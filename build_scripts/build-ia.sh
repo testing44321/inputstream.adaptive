@@ -3,7 +3,7 @@
 IA_HOME="$(dirname "$(dirname $(readlink -f $0))")"
 ADDON_ID="inputstream.adaptive.testing"
 KODI_GIT="$HOME/kodi"
-SDK_ROOT=$HOME/kodi-android-tools
+ANDROID_ROOT=$HOME/kodi-android-tools
 EXTRA_OPTIONS=""
 
 if [[ $# -eq 0 ]]; then
