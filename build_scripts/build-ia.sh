@@ -25,7 +25,8 @@ if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
 fi
 
 eval set -- "$PARSED"
-ARCH="" KODI_VERSION="" PLATFORM=linux CLEAN_DEPS="" NO_APT_INSTALL="" CLEAN_BUILD=""
+ARCH="" KODI_VERSION="" PLATFORM=linux CLEAN_DEPS=""
+NO_APT_INSTALL="" CLEAN_BUILD="" REBUILD=""
 while true; do
     case "$1" in
         -a|--android)
