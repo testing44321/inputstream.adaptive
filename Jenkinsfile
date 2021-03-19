@@ -1,1 +1,1 @@
-buildPlugin(version: "Matrix", deploy: ['windows-x86_64'], platforms: ['windows-x86_64'])
+buildPlugin(version: "Matrix", deploy: ['ubuntu-ppa'], platforms: ['ubuntu-ppa'])
