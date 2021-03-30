@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(inputstream.adaptive)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
@@ -41,6 +41,7 @@ set(ADP_HEADERS
 	src/log.h
 	src/aes_decrypter.h
 	src/ADTSReader.h
+	src/Iaes_decrypter.h
 	src/md5.h
 	src/WebmReader.h
 	)
@@ -52,10 +53,12 @@ if(WIN32)
 endif()
 
 include_directories(${INCLUDES}
-                    ${KODI_INCLUDE_DIR}
+                    ${KODI_INCLUDE_DIR}/.. # Hack way with "/..", need bigger Kodi cmake rework to match right include ways (becomes done in future)
                     lib/libbento4/Core
                     lib/webm_parser/include
 )
+
+set(CMAKE_FIND_FRAMEWORK LAST)
 
 include(FindEXPAT)
 find_package(EXPAT REQUIRED)
@@ -75,12 +78,12 @@ add_subdirectory(lib/mpegts)
 
 add_subdirectory(lib/webm_parser)
 
-if(NOT CORE_SYSTEM_NAME STREQUAL ios)
-  add_subdirectory(wvdecrypter)
-  set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
-else()
+if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
   set(BENTOUSESTCFS 1)
   add_subdirectory(lib/libbento4)
+else()
+  add_subdirectory(wvdecrypter)
+  set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
 endif()
 
 if(CORE_SYSTEM_NAME STREQUAL android)
@@ -98,19 +101,10 @@ build_addon(inputstream.adaptive ADP DEPLIBS)
 include(CPack)
 
 if(NOT CMAKE_CROSSCOMPILING)
-  #Tests
-  find_package( Threads )
-  add_executable(Test_DashTree
-    src/parser/DASHTreeTest.cpp
-    src/parser/DASHTree.cpp
-    src/parser/PRProtectionParser.cpp
-    src/common/AdaptiveTree.cpp
-    src/helpers.cpp
-    src/oscompat.cpp
-    )
-  target_link_libraries(Test_DashTree ${EXPAT_LIBRARIES} Threads::Threads)
-
+  list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
   enable_testing()
-
-  add_test(6play_live Test_DashTree "${CMAKE_SOURCE_DIR}/src/parser/testfiles/6play.mpd")
+  include(FindGTest)
+  find_package(GTest REQUIRED)
+  include_directories(${GTEST_INCLUDE_DIRS})
+  add_subdirectory(src/test)
 endif()
