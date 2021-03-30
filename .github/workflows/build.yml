@@ -19,7 +19,7 @@ jobs:
     - name: Checkout Kodi repo
       uses: actions/checkout@v2
       with:
-        repository: xbmc/xbmc
+        repository: xbmc/repo-plugins
         ref: master
         path: xbmc
     - name: Checkout inputstream.adaptive repo
